@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.env
+data/
+/models/
+*.pyc
+*.egg-info/
+.vault
+local_school_ai_requirements_v2.md

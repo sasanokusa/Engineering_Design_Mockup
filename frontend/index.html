@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>議事録作成支援</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="top-bar">
+        <div>
+          <p class="eyebrow">Local School AI Platform</p>
+          <h1>議事録作成支援</h1>
+        </div>
+        <p class="local-note">音声・文字起こし・議事録案はローカル環境に保存されます。</p>
+      </header>
+
+      <section class="workspace">
+        <form id="meeting-form" class="panel">
+          <h2>新規議事録</h2>
+          <label>
+            面談名
+            <input id="meeting-name" name="meeting_name" type="text" required placeholder="例: 2年A組 保護者面談" />
+          </label>
+          <div class="field-grid">
+            <label>
+              実施日
+              <input id="meeting-date" name="meeting_date" type="date" />
+            </label>
+            <label>
+              面談種別
+              <input id="meeting-type" name="meeting_type" type="text" placeholder="保護者面談 / 個別相談" />
+            </label>
+          </div>
+          <label>
+            参加者
+            <input id="participants" name="participants" type="text" placeholder="担任、保護者、生徒など" />
+          </label>
+          <label>
+            備考
+            <textarea id="notes" name="notes" rows="3" placeholder="確認しておきたい前提があれば入力"></textarea>
+          </label>
+
+          <div class="audio-area">
+            <div class="record-controls">
+              <button id="record-start" type="button">録音開始</button>
+              <button id="record-stop" type="button" disabled>録音停止</button>
+            </div>
+            <audio id="recording-preview" controls hidden></audio>
+            <label>
+              音声ファイル
+              <input id="audio-file" type="file" accept="audio/*" />
+            </label>
+          </div>
+
+          <button id="upload-button" type="submit" class="primary">音声を登録</button>
+        </form>
+
+        <section class="panel">
+          <h2>処理</h2>
+          <div class="action-stack">
+            <button id="transcribe-button" type="button" disabled>文字起こし開始</button>
+            <button id="cleanup-button" type="button" disabled>整形</button>
+            <button id="minutes-button" type="button" disabled>議事録生成</button>
+          </div>
+          <div class="status-box">
+            <h3>状態確認</h3>
+            <ul id="job-list"></ul>
+          </div>
+          <p id="error-message" class="error" hidden></p>
+        </section>
+      </section>
+
+      <section class="results-grid">
+        <section>
+          <h2>raw transcript</h2>
+          <textarea id="raw-output" rows="12" readonly></textarea>
+        </section>
+        <section>
+          <h2>整形済みテキスト</h2>
+          <textarea id="cleaned-output" rows="12" readonly></textarea>
+        </section>
+        <section>
+          <h2>議事録案</h2>
+          <textarea id="minutes-output" rows="18" readonly></textarea>
+        </section>
+      </section>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
+
