@@ -112,6 +112,12 @@ class MinutesRepository:
         self.db.refresh(cleaned)
         return cleaned
 
+    def update_cleaned_transcript_text(self, cleaned: CleanedTranscript, *, text: str) -> CleanedTranscript:
+        cleaned.text = text
+        self.db.commit()
+        self.db.refresh(cleaned)
+        return cleaned
+
     def create_minutes_document(
         self,
         *,
@@ -132,4 +138,3 @@ class MinutesRepository:
         self.db.commit()
         self.db.refresh(minutes)
         return minutes
-

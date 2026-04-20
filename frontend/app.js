@@ -3,6 +3,8 @@ const state = {
   transcriptId: null,
   cleanedId: null,
   minutesId: null,
+  cleanedDirty: false,
+  hasRevisionFlags: false,
   recordedBlob: null,
   mediaRecorder: null,
   chunks: [],
@@ -28,6 +30,11 @@ const elements = {
   error: $("error-message"),
   rawOutput: $("raw-output"),
   cleanedOutput: $("cleaned-output"),
+  revisionSuggestionsButton: $("revision-suggestions-button"),
+  saveCleanedButton: $("save-cleaned-button"),
+  cleanedEditNote: $("cleaned-edit-note"),
+  revisionPanel: $("revision-panel"),
+  revisionSuggestions: $("revision-suggestions"),
   minutesOutput: $("minutes-output"),
 };
 
@@ -47,12 +54,28 @@ function addJobLine(message) {
 function setButtons() {
   elements.transcribeButton.disabled = !state.audioFileId;
   elements.cleanupButton.disabled = !state.transcriptId;
-  elements.minutesButton.disabled = !state.cleanedId;
+  elements.minutesButton.disabled = !state.cleanedId || state.cleanedDirty;
+  elements.revisionSuggestionsButton.disabled = !state.cleanedId || !state.hasRevisionFlags || state.cleanedDirty;
+  elements.saveCleanedButton.disabled = !state.cleanedId || !state.cleanedDirty;
+  elements.cleanedOutput.readOnly = !state.cleanedId;
 }
 
 async function postJson(url, body) {
   const response = await fetch(url, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.detail || "API request failed");
+  }
+  return data;
+}
+
+async function patchJson(url, body) {
+  const response = await fetch(url, {
+    method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
@@ -76,6 +99,41 @@ function appendIfPresent(formData, key, value) {
   if (value !== null && value !== undefined && String(value).trim() !== "") {
     formData.append(key, value);
   }
+}
+
+function hasRevisionFlags(text) {
+  return /要確認|不明|聞き取れない|確認が必要/.test(text);
+}
+
+function setCleanedText(text, { dirty = false } = {}) {
+  elements.cleanedOutput.value = text;
+  state.cleanedDirty = dirty;
+  state.hasRevisionFlags = hasRevisionFlags(text);
+  updateCleanedAssistNote();
+  setButtons();
+}
+
+function updateCleanedAssistNote() {
+  if (!state.cleanedId) {
+    elements.cleanedEditNote.hidden = true;
+    elements.cleanedEditNote.textContent = "";
+    return;
+  }
+
+  if (state.cleanedDirty) {
+    elements.cleanedEditNote.textContent = "未保存の修正があります。保存すると議事録生成に反映されます。";
+    elements.cleanedEditNote.hidden = false;
+    return;
+  }
+
+  if (state.hasRevisionFlags) {
+    elements.cleanedEditNote.textContent = "要確認箇所があります。修正案を確認し、必要に応じて手動で直してください。";
+    elements.cleanedEditNote.hidden = false;
+    return;
+  }
+
+  elements.cleanedEditNote.hidden = true;
+  elements.cleanedEditNote.textContent = "";
 }
 
 elements.recordStart.addEventListener("click", async () => {
@@ -151,8 +209,12 @@ elements.form.addEventListener("submit", async (event) => {
     state.transcriptId = null;
     state.cleanedId = null;
     state.minutesId = null;
+    state.cleanedDirty = false;
+    state.hasRevisionFlags = false;
     elements.rawOutput.value = "";
-    elements.cleanedOutput.value = "";
+    setCleanedText("");
+    elements.revisionPanel.hidden = true;
+    elements.revisionSuggestions.textContent = "";
     elements.minutesOutput.value = "";
     setButtons();
     addJobLine(`音声登録完了: audio_file_id=${state.audioFileId}`);
@@ -218,14 +280,71 @@ elements.cleanupButton.addEventListener("click", () => {
     async (job) => {
       state.cleanedId = job.result_id;
       const cleaned = await getJson(`/api/cleaned/${state.cleanedId}`);
-      elements.cleanedOutput.value = cleaned.text;
+      setCleanedText(cleaned.text);
+      elements.revisionPanel.hidden = true;
+      elements.revisionSuggestions.textContent = "";
+      if (state.hasRevisionFlags) {
+        await loadRevisionSuggestions();
+      }
     },
   );
 });
 
+elements.cleanedOutput.addEventListener("input", () => {
+  if (!state.cleanedId) return;
+  state.cleanedDirty = true;
+  state.hasRevisionFlags = hasRevisionFlags(elements.cleanedOutput.value);
+  updateCleanedAssistNote();
+  setButtons();
+});
+
+async function saveCleanedText() {
+  if (!state.cleanedId) {
+    setError("整形済みテキストがまだありません。");
+    return;
+  }
+
+  setError("");
+  try {
+    const cleaned = await patchJson(`/api/cleaned/${state.cleanedId}`, {
+      text: elements.cleanedOutput.value,
+    });
+    setCleanedText(cleaned.text);
+    addJobLine("整形済みテキストを保存しました。");
+  } catch (error) {
+    setError(error.message);
+  }
+}
+
+async function loadRevisionSuggestions() {
+  if (!state.cleanedId) {
+    setError("整形済みテキストがまだありません。");
+    return;
+  }
+
+  setError("");
+  try {
+    const response = await postJson(`/api/cleaned/${state.cleanedId}/revision-suggestions`, {});
+    elements.revisionSuggestions.textContent = response.suggestions;
+    elements.revisionPanel.hidden = false;
+    state.hasRevisionFlags = response.has_review_flags;
+    updateCleanedAssistNote();
+    setButtons();
+  } catch (error) {
+    setError(error.message);
+  }
+}
+
+elements.saveCleanedButton.addEventListener("click", saveCleanedText);
+elements.revisionSuggestionsButton.addEventListener("click", loadRevisionSuggestions);
+
 elements.minutesButton.addEventListener("click", () => {
   if (!state.cleanedId) {
     setError("整形済みテキストがまだありません。");
+    return;
+  }
+  if (state.cleanedDirty) {
+    setError("未保存の修正があります。先に「修正を保存」を押してください。");
     return;
   }
   createAndPollJob(
@@ -241,4 +360,3 @@ elements.minutesButton.addEventListener("click", () => {
 });
 
 setButtons();
-

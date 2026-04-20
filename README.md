@@ -167,8 +167,10 @@ ASR_DEVICE=cpu
 6. 「音声を登録」
 7. 「文字起こし開始」
 8. 「整形」
-9. 「議事録生成」
-10. raw transcript / 整形済みテキスト / 議事録案を確認
+9. 要確認箇所が出た場合は「修正案を表示」で確認
+10. 整形済みテキストを必要に応じて手動修正し、「修正を保存」
+11. 「議事録生成」
+12. raw transcript / 整形済みテキスト / 議事録案を確認
 
 ## API
 
@@ -185,6 +187,8 @@ ASR_DEVICE=cpu
 
 - `GET /api/transcripts/{transcript_id}`
 - `GET /api/cleaned/{cleaned_id}`
+- `PATCH /api/cleaned/{cleaned_id}`
+- `POST /api/cleaned/{cleaned_id}/revision-suggestions`
 
 ## テスト
 

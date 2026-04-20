@@ -8,7 +8,9 @@ class MockLLMAdapter:
     model_name = "mock-local-llm"
 
     def generate(self, *, system_prompt: str, user_prompt: str) -> LLMResponse:
-        if (
+        if "修正案作成担当" in system_prompt:
+            text = self._revision_suggestions_text(user_prompt)
+        elif (
             "議事録案作成担当" in system_prompt
             or "## 決定事項" in system_prompt
             or "議事録を作成" in system_prompt
@@ -40,6 +42,22 @@ class MockLLMAdapter:
                 "- 今後の対応: 不明",
                 "- 注意事項: LLM実体を使わないmock出力のため、内容確認が必要です。",
                 "- 自由記述: ローカル処理フロー確認用の議事録案です。",
+            ]
+        )
+
+    def _revision_suggestions_text(self, user_prompt: str) -> str:
+        flagged_lines = [
+            line.strip()
+            for line in user_prompt.splitlines()
+            if any(word in line for word in ("要確認", "不明", "聞き取れない", "確認が必要"))
+        ]
+        target = flagged_lines[0] if flagged_lines else "要確認箇所"
+        return "\n".join(
+            [
+                f"- 要確認箇所: {target}",
+                "- 修正候補: raw transcript の該当箇所と照合し、聞き取れる語だけに置き換えてください。",
+                "- 根拠: mockアダプタのため候補は確定しません。元音声またはraw transcriptの確認が必要です。",
+                "- 追加で人間が確認すべきこと: 参加者名、決定事項、日時などは推測で確定しないでください。",
             ]
         )
 

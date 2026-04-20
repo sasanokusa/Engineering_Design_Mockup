@@ -55,6 +55,18 @@ def test_minutes_flow_smoke(tmp_path, monkeypatch):
         assert cleaned.status_code == 200
         assert "整形済み文字起こし" in cleaned.json()["text"]
 
+        updated_cleaned = client.patch(
+            f"/api/cleaned/{cleaned_id}",
+            json={"text": cleaned.json()["text"] + "\n要確認: 参加者名が不明です。"},
+        )
+        assert updated_cleaned.status_code == 200
+        assert "要確認" in updated_cleaned.json()["text"]
+
+        suggestions = client.post(f"/api/cleaned/{cleaned_id}/revision-suggestions", json={})
+        assert suggestions.status_code == 200
+        assert suggestions.json()["has_review_flags"] is True
+        assert "修正候補" in suggestions.json()["suggestions"]
+
         minutes_job = client.post("/api/jobs/minutes", json={"cleaned_transcript_id": cleaned_id})
         assert minutes_job.status_code == 202, minutes_job.text
         minutes_status = client.get(f"/api/jobs/{minutes_job.json()['id']}").json()
@@ -70,4 +82,3 @@ def test_missing_job_returns_404(tmp_path, monkeypatch):
     with make_test_client(tmp_path, monkeypatch) as client:
         response = client.get("/api/jobs/999")
         assert response.status_code == 404
-

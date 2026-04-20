@@ -63,6 +63,18 @@ class CleanedTranscriptOut(BaseModel):
     created_at: datetime
 
 
+class UpdateCleanedTranscriptRequest(BaseModel):
+    text: str = Field(min_length=1)
+
+
+class CleanedRevisionSuggestionsOut(BaseModel):
+    cleaned_transcript_id: int
+    has_review_flags: bool
+    suggestions: str
+    llm_provider: str | None
+    llm_model: str | None
+
+
 class MinutesDocumentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -105,4 +117,3 @@ class JobOut(BaseModel):
 
 class ErrorResponse(BaseModel):
     detail: str
-

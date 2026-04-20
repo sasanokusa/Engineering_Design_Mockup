@@ -79,6 +79,15 @@
         </section>
         <section>
           <h2>整形済みテキスト</h2>
+          <div class="revision-toolbar">
+            <button id="revision-suggestions-button" type="button" disabled>修正案を表示</button>
+            <button id="save-cleaned-button" type="button" disabled>修正を保存</button>
+          </div>
+          <p id="cleaned-edit-note" class="assist-note" hidden></p>
+          <div id="revision-panel" class="revision-panel" hidden>
+            <h3>修正案</h3>
+            <pre id="revision-suggestions"></pre>
+          </div>
           <textarea id="cleaned-output" rows="12" readonly></textarea>
         </section>
         <section>
@@ -91,4 +100,3 @@
     <script src="/app.js" type="module"></script>
   </body>
 </html>
-
