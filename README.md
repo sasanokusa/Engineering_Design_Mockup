@@ -93,7 +93,7 @@ uvicorn backend.main:app --reload --port 8000
 既定では `LOCAL_SCHOOL_AI_DATA_DIR=./data` なので、このリポジトリでは以下に保存されます。
 
 ```text
-/Users/ryoike/Documents/engineering_design_2026/data/
+~/Documents/engineering_design_2026/data/
   local_school_ai.db       SQLite DB。文字起こし、整形済みテキスト、議事録案、ジョブ状態、メタ情報を保存
   uploads/audio/           アップロードまたは録音した音声ファイルを保存
 ```
