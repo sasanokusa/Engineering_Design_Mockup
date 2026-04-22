@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import traceback
 
 from backend.adapters.asr.factory import create_asr_adapter
@@ -10,6 +11,9 @@ from backend.services.cleanup_service import CleanupService
 from backend.services.document_compare_service import DocumentCompareService
 from backend.services.minutes_service import MinutesService
 from backend.services.transcription_service import TranscriptionService
+
+
+logger = logging.getLogger(__name__)
 
 
 def run_job(job_id: int) -> None:
@@ -56,6 +60,7 @@ def run_job(job_id: int) -> None:
 
         raise ValueError(f"Unsupported job type: {job.job_type}")
     except Exception as exc:
+        logger.exception("Job %s failed", job_id)
         message = f"{exc}"
         if not message:
             message = traceback.format_exc(limit=1).strip()
@@ -63,7 +68,8 @@ def run_job(job_id: int) -> None:
             job = JobRepository(db).get_job(job_id)
             if job is not None:
                 JobRepository(db).mark_failed(job, error_message=message)
-        finally:
-            return
+        except Exception:
+            logger.exception("Failed to mark job %s as failed", job_id)
+            raise
     finally:
         db.close()

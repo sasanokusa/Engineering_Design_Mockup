@@ -94,6 +94,11 @@ class DocumentService:
     ) -> DocumentIngestResult:
         clean_scope = _clean_scope(scope)
         clean_external_session_id = _clean_optional_external_session_id(external_session_id)
+        _validate_temporary_owner(
+            scope=clean_scope,
+            session_id=session_id,
+            external_session_id=clean_external_session_id,
+        )
         collection = self.create_collection(name=collection_name)
         documents: list[DocumentRecord] = []
         failures: list[DocumentIngestFailure] = []
@@ -140,6 +145,11 @@ class DocumentService:
     ) -> DocumentIngestResult:
         clean_scope = _clean_scope(scope)
         clean_external_session_id = _clean_optional_external_session_id(external_session_id)
+        _validate_temporary_owner(
+            scope=clean_scope,
+            session_id=session_id,
+            external_session_id=clean_external_session_id,
+        )
         collection = self.create_collection(name=collection_name)
         documents: list[DocumentRecord] = []
         failures: list[DocumentIngestFailure] = []
@@ -277,6 +287,15 @@ class DocumentService:
         for directory in artifact_dirs:
             _remove_tree_if_safe(directory, root=self.settings.resolved_data_dir)
 
+    def delete_temporary_documents_for_session(self, *, session_id: int) -> int:
+        document_ids = [
+            document.id
+            for document in self.repository.list_documents(scope="temporary", session_id=session_id)
+        ]
+        for document_id in document_ids:
+            self.delete_temporary_document(document_id=document_id, session_id=session_id)
+        return len(document_ids)
+
     def _create_document_record(
         self,
         *,
@@ -401,7 +420,12 @@ def _temporary_session_part(document: DocumentRecord) -> str:
         return str(document.session_id)
     if document.external_session_id:
         return _safe_path_token(document.external_session_id, default="openwebui-session")
-    return "unscoped"
+    raise ValueError("一時文書には session_id または external_session_id が必要です。")
+
+
+def _validate_temporary_owner(*, scope: str, session_id: int | None, external_session_id: str | None) -> None:
+    if scope == "temporary" and session_id is None and external_session_id is None:
+        raise ValueError("一時文書には session_id または external_session_id が必要です。")
 
 
 def _safe_path_token(value: str, *, default: str) -> str:

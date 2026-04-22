@@ -88,6 +88,11 @@ def test_missing_job_returns_404(tmp_path, monkeypatch):
 
 def test_chat_session_message_flow_smoke(tmp_path, monkeypatch):
     with make_test_client(tmp_path, monkeypatch) as client:
+        chat_page = client.get("/chat/")
+        assert chat_page.status_code == 200
+        assert 'src="/chat/app.js"' in chat_page.text
+        assert 'href="/chat/styles.css"' in chat_page.text
+
         create_response = client.post("/api/chat/sessions", json={"title": "資料確認"})
         assert create_response.status_code == 201, create_response.text
         session_id = create_response.json()["id"]
@@ -120,6 +125,26 @@ def test_chat_session_message_flow_smoke(tmp_path, monkeypatch):
 
         missing = client.get(f"/api/chat/sessions/{session_id}")
         assert missing.status_code == 404
+
+
+def test_chat_read_endpoints_do_not_create_llm_adapter(tmp_path, monkeypatch):
+    with make_test_client(tmp_path, monkeypatch) as client:
+        create_response = client.post("/api/chat/sessions", json={"title": "読み取り確認"})
+        assert create_response.status_code == 201, create_response.text
+        session_id = create_response.json()["id"]
+
+        from backend.services import chat_service
+
+        def fail_adapter():
+            raise AssertionError("read-only chat endpoints must not create an LLM adapter")
+
+        monkeypatch.setattr(chat_service, "create_llm_adapter", fail_adapter)
+
+        assert client.get("/api/chat/sessions").status_code == 200
+        assert client.get(f"/api/chat/sessions/{session_id}").status_code == 200
+        assert client.get(f"/api/chat/sessions/{session_id}/messages").status_code == 200
+        assert client.get("/api/chat/tools").status_code == 200
+        assert client.delete(f"/api/chat/sessions/{session_id}").status_code == 204
 
 
 def test_document_upload_process_and_search_flow(tmp_path, monkeypatch):
@@ -196,9 +221,11 @@ def test_document_upload_process_and_search_flow(tmp_path, monkeypatch):
         assert compare_status.status_code == 200, compare_status.text
         compare_body = compare_status.json()
         assert compare_body["job"]["status"] == "completed"
-        assert compare_body["result"]["granularity"] == "paragraph"
-        assert compare_body["result"]["pairs"][0]["matched_chunk_count"] >= 1
-        assert compare_body["result"]["similar_chunks"]
+        assert compare_body["result"] is not None
+        compare_result = compare_body["result"]
+        assert compare_result["granularity"] == "paragraph"
+        assert compare_result["pairs"][0]["matched_chunk_count"] >= 1
+        assert compare_result["similar_chunks"]
 
         reprocess = client.post(f"/api/documents/{document['id']}/process")
         assert reprocess.status_code == 200, reprocess.text
@@ -264,6 +291,43 @@ def test_document_upload_process_and_search_flow(tmp_path, monkeypatch):
 
         missing_detached_document = client.get(f"/api/documents/{temporary_document['id']}")
         assert missing_detached_document.status_code == 404
+
+        cleanup_session = client.post("/api/chat/sessions", json={"title": "削除確認"})
+        assert cleanup_session.status_code == 201, cleanup_session.text
+        cleanup_session_id = cleanup_session.json()["id"]
+        cleanup_upload = client.post(
+            "/api/documents/upload",
+            data={"collection": "chat-session-cleanup", "scope": "temporary", "session_id": str(cleanup_session_id)},
+            files=[
+                (
+                    "files",
+                    (
+                        "cleanup.md",
+                        "# Cleanup\n\nTemporary document removed with its chat session.",
+                        "text/markdown",
+                    ),
+                )
+            ],
+        )
+        assert cleanup_upload.status_code == 200, cleanup_upload.text
+        cleanup_document = cleanup_upload.json()["documents"][0]
+        cleanup_paths = [
+            Path(cleanup_document["file_path"]),
+            Path(cleanup_document["normalized_markdown_path"]),
+            Path(cleanup_document["chunks_path"]),
+        ]
+        assert all(path.exists() for path in cleanup_paths)
+
+        delete_session = client.delete(f"/api/chat/sessions/{cleanup_session_id}")
+        assert delete_session.status_code == 204, delete_session.text
+        assert client.get(f"/api/documents/{cleanup_document['id']}").status_code == 404
+        assert not any(path.exists() for path in cleanup_paths)
+        cleanup_search = client.post(
+            "/api/documents/search",
+            json={"query": "Temporary document removed", "scope": "temporary", "session_id": cleanup_session_id},
+        )
+        assert cleanup_search.status_code == 200, cleanup_search.text
+        assert cleanup_search.json()["results"] == []
 
         persistent_delete = client.delete(f"/api/documents/{document['id']}")
         assert persistent_delete.status_code == 400
@@ -402,7 +466,21 @@ def test_cli_ingest_uses_document_pipeline(tmp_path, monkeypatch, capsys):
 
     from backend.cli import main as cli_main
 
-    exit_code = cli_main(["ingest", str(source_dir), "--collection", "cli-handbooks", "--json"])
+    exit_code = cli_main(
+        [
+            "ingest",
+            str(source_dir),
+            "--collection",
+            "cli-handbooks",
+            "--scope",
+            "temporary",
+            "--session-id",
+            "42",
+            "--external-session-id",
+            "owui-cli-1",
+            "--json",
+        ]
+    )
     captured = capsys.readouterr()
     payload = json.loads(captured.out)
 
@@ -410,5 +488,9 @@ def test_cli_ingest_uses_document_pipeline(tmp_path, monkeypatch, capsys):
     assert payload["collection"]["name"] == "cli-handbooks"
     assert payload["failures"] == []
     assert payload["documents"][0]["status"] == "processed"
+    assert payload["documents"][0]["scope"] == "temporary"
+    assert payload["documents"][0]["session_id"] == 42
+    assert payload["documents"][0]["external_session_id"] == "owui-cli-1"
+    assert "temporary/42" in payload["documents"][0]["file_path"]
     assert Path(payload["documents"][0]["normalized_markdown_path"]).exists()
     assert Path(payload["documents"][0]["chunks_path"]).exists()

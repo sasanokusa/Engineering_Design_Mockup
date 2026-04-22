@@ -250,7 +250,7 @@ def _units_for_document(document: DocumentRecord, *, granularity: str) -> list[C
 
     return [
         CompareUnit(
-            document_id=chunk.document_id,
+            document_id=document.id,
             original_filename=document.original_filename,
             chunk_id=chunk.id,
             chunk_index=chunk.chunk_index,

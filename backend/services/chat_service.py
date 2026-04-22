@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from sqlalchemy.orm import Session
 
 from backend.adapters.llm.base import LLMAdapter
+from backend.adapters.llm.factory import create_llm_adapter
 from backend.models.db import ChatMessage, ChatSession
 from backend.orchestrator.chat_orchestrator import ChatOrchestrator
 from backend.repositories.chat_repository import ChatRepository
-from backend.repositories.document_repository import DocumentRepository
+from backend.services.document_service import DocumentService
 from backend.tooling.base import ToolInfo
 from backend.tooling.registry import create_default_tool_registry
 
@@ -17,12 +20,20 @@ MAX_ATTACHMENT_CHUNK_CHARS = 1800
 
 
 class ChatService:
-    def __init__(self, db: Session, llm_adapter: LLMAdapter):
+    def __init__(
+        self,
+        db: Session,
+        llm_adapter: LLMAdapter | None = None,
+        *,
+        llm_adapter_factory: Callable[[], LLMAdapter] | None = None,
+    ):
         self.db = db
         self.repository = ChatRepository(db)
-        self.documents = DocumentRepository(db)
+        self.documents = DocumentService(db)
         self.tool_registry = create_default_tool_registry()
-        self.orchestrator = ChatOrchestrator(llm_adapter, self.tool_registry)
+        self._llm_adapter = llm_adapter
+        self._llm_adapter_factory = llm_adapter_factory or create_llm_adapter
+        self._orchestrator: ChatOrchestrator | None = None
 
     def create_session(self, *, title: str | None, system_prompt: str | None) -> ChatSession:
         return self.repository.create_session(title=title, system_prompt=system_prompt)
@@ -34,6 +45,7 @@ class ChatService:
         session = self.repository.get_session(session_id)
         if session is None:
             raise ValueError(f"Chat session not found: {session_id}")
+        self.documents.delete_temporary_documents_for_session(session_id=session_id)
         self.repository.delete_session(session)
 
     def get_session(self, *, session_id: int) -> ChatSession:
@@ -89,6 +101,14 @@ class ChatService:
     def list_available_tools(self) -> list[ToolInfo]:
         return self.tool_registry.list_tools()
 
+    @property
+    def orchestrator(self) -> ChatOrchestrator:
+        if self._orchestrator is None:
+            if self._llm_adapter is None:
+                self._llm_adapter = self._llm_adapter_factory()
+            self._orchestrator = ChatOrchestrator(self._llm_adapter, self.tool_registry)
+        return self._orchestrator
+
     def _build_attachment_context(self, *, session_id: int) -> tuple[str | None, list[dict]]:
         documents = self.documents.list_documents(scope="temporary", session_id=session_id)
         if not documents:
@@ -99,7 +119,7 @@ class ChatService:
         remaining_chars = MAX_ATTACHMENT_CONTEXT_CHARS
 
         for document in documents[:MAX_ATTACHMENT_DOCUMENTS]:
-            detail = self.documents.get_document_detail(document.id) or document
+            detail = self.documents.get_document_detail(document_id=document.id)
             chunks = list(getattr(detail, "chunks", []) or [])
             payload.append(
                 {

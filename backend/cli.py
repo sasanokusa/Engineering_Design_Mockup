@@ -13,9 +13,21 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="school-ai")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    ingest_parser = subparsers.add_parser("ingest", help="永続資料を取り込み、正規化・チャンク化・索引化します。")
+    ingest_parser = subparsers.add_parser("ingest", help="資料を取り込み、正規化・チャンク化・索引化します。")
     ingest_parser.add_argument("path", help="取り込み対象のファイルまたはディレクトリ")
     ingest_parser.add_argument("--collection", required=True, help="登録先コレクション名")
+    ingest_parser.add_argument(
+        "--scope",
+        choices=("persistent", "temporary"),
+        default="persistent",
+        help="保存範囲。既定は persistent です。",
+    )
+    ingest_parser.add_argument(
+        "--session-id",
+        type=_positive_int,
+        help="一時文書に紐づけるローカルチャットセッションID",
+    )
+    ingest_parser.add_argument("--external-session-id", help="一時文書に紐づける外部チャットセッションID")
     ingest_parser.add_argument("--no-process", action="store_true", help="原本保存のみ行い、処理は後で実行します。")
     ingest_parser.add_argument("--json", action="store_true", help="結果をJSONで出力します。")
 
@@ -33,6 +45,9 @@ def _run_ingest(args: argparse.Namespace) -> int:
         result = DocumentService(db).ingest_path(
             Path(args.path),
             collection_name=args.collection,
+            scope=args.scope,
+            session_id=args.session_id,
+            external_session_id=args.external_session_id,
             process=not args.no_process,
         )
         payload = {
@@ -44,6 +59,10 @@ def _run_ingest(args: argparse.Namespace) -> int:
                 {
                     "id": document.id,
                     "filename": document.original_filename,
+                    "scope": document.scope,
+                    "session_id": document.session_id,
+                    "external_session_id": document.external_session_id,
+                    "file_path": document.file_path,
                     "status": document.status,
                     "normalized_markdown_path": document.normalized_markdown_path,
                     "chunks_path": document.chunks_path,
@@ -76,7 +95,7 @@ def _print_ingest_summary(payload: dict) -> None:
     print(f"collection: {collection['name']} (id={collection['id']})")
     print(f"documents: {len(documents)}")
     for document in documents:
-        line = f"- #{document['id']} {document['filename']}: {document['status']}"
+        line = f"- #{document['id']} {document['filename']}: {document['status']} / {document['scope']}"
         if document["error_message"]:
             line += f" ({document['error_message']})"
         print(line)
@@ -84,6 +103,13 @@ def _print_ingest_summary(payload: dict) -> None:
         print("failures:")
         for failure in failures:
             print(f"- {failure['filename']}: {failure['error_message']}")
+
+
+def _positive_int(value: str) -> int:
+    parsed = int(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("正の整数を指定してください。")
+    return parsed
 
 
 if __name__ == "__main__":

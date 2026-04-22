@@ -3,49 +3,87 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Open WebUI 連携</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <title>共通チャット</title>
+    <link rel="stylesheet" href="/chat/styles.css" />
   </head>
   <body>
-    <main class="app-shell">
-      <header class="top-bar">
-        <div>
-          <p class="eyebrow">Local School AI Platform</p>
-          <h1>Open WebUI 連携</h1>
-        </div>
-        <p class="local-note">
-          通常チャットは Open WebUI に任せ、このバックエンドは学校向けデータ処理APIとして使います。
-          <a href="/">議事録</a>
-          <a href="/documents/">資料投入</a>
-          <a href="/compare/">文書比較</a>
-        </p>
-      </header>
+    <main class="chat-shell">
+      <aside class="sidebar">
+        <header class="brand">
+          <div>
+            <p class="eyebrow">Local School AI Platform</p>
+            <h1>共通チャット</h1>
+          </div>
+        </header>
 
-      <section class="workspace">
-        <section class="panel">
-          <h2>責務分離</h2>
-          <p class="assist-note">
-            Open WebUI はチャットUI、会話セッション、モデル選択、ツール起動導線を担当します。
-            自前バックエンドは原本保存、正規化、chunk化、検索、比較、議事録ワークフロー、監査ログを保持します。
-          </p>
-          <ul class="plain-list">
-            <li>連携マニフェスト: <a href="/api/openwebui/manifest">/api/openwebui/manifest</a></li>
-            <li>ツール一覧: <a href="/api/openwebui/tools">/api/openwebui/tools</a></li>
-            <li>ヘルスチェック: <a href="/api/openwebui/health">/api/openwebui/health</a></li>
-          </ul>
+        <button id="new-session-button" class="new-chat-button" type="button">
+          <span aria-hidden="true">+</span>
+          新規チャット
+        </button>
+
+        <nav class="session-nav" aria-label="チャット履歴">
+          <div class="section-heading">
+            <h2>履歴</h2>
+            <span id="session-count">0</span>
+          </div>
+          <div id="session-list" class="session-list"></div>
+        </nav>
+
+        <section class="tool-menu" aria-label="連携ツール">
+          <div class="section-heading">
+            <h2>ツール</h2>
+            <span id="tool-count">0</span>
+          </div>
+          <div id="tool-link-list"></div>
+        </section>
+      </aside>
+
+      <section class="chat-main">
+        <header class="chat-header">
+          <div>
+            <p id="active-meta" class="eyebrow">チャット</p>
+            <h2 id="active-title">新規チャット</h2>
+          </div>
+          <nav class="header-actions" aria-label="主要画面">
+            <a class="secondary-link" href="/">議事録</a>
+            <a class="secondary-link" href="/documents/">資料投入</a>
+            <a class="secondary-link" href="/compare/">文書比較</a>
+          </nav>
+        </header>
+
+        <section id="messages" class="messages" aria-live="polite"></section>
+
+        <section id="tool-suggestions" class="tool-suggestions" hidden>
+          <h3>関連ツール候補</h3>
+          <div id="tool-suggestion-list"></div>
         </section>
 
-        <section class="panel">
-          <h2>Open WebUI 側から呼ぶAPI</h2>
-          <ul class="plain-list">
-            <li>資料検索: POST /api/openwebui/tools/document-search</li>
-            <li>一時文書アップロード: POST /api/openwebui/tools/session-documents/upload</li>
-            <li>文書読解: GET /api/openwebui/tools/documents/{document_id}</li>
-            <li>文書比較: POST /api/openwebui/tools/document-compare</li>
-            <li>議事録導線: POST /api/openwebui/tools/minutes-launch</li>
-          </ul>
+        <section id="attachments" class="attachments" hidden>
+          <h3>添付中の一時文書</h3>
+          <div id="attachment-list"></div>
         </section>
+
+        <form id="message-form" class="composer">
+          <div class="composer-shell">
+            <button id="attach-button" class="attach-button" type="button" title="一時文書を添付" aria-label="一時文書を添付">
+              +
+            </button>
+            <textarea id="message-input" rows="2" placeholder="メッセージを入力"></textarea>
+          </div>
+          <input id="attachment-files" type="file" multiple hidden />
+          <div class="composer-actions">
+            <label>
+              <input id="use-tools" type="checkbox" checked />
+              ツール候補を表示
+            </label>
+            <button id="send-button" class="primary" type="submit">送信</button>
+          </div>
+        </form>
+
+        <p id="error-message" class="error" hidden></p>
       </section>
     </main>
+
+    <script src="/chat/app.js" type="module"></script>
   </body>
 </html>
