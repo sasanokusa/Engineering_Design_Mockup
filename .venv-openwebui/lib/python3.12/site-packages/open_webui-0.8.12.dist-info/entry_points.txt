@@ -1,0 +1,2 @@
+[console_scripts]
+open-webui = open_webui:app
