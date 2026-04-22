@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>資料投入</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="top-bar">
+        <div>
+          <p class="eyebrow">Local School AI Platform</p>
+          <h1>資料投入</h1>
+        </div>
+        <p class="local-note">
+          原本を保存し、正規化、チャンク化、全文検索索引までローカルで処理します。
+          <a href="/">議事録</a>
+          <a href="/chat/">Open WebUI連携</a>
+          <a href="/compare/">文書比較</a>
+        </p>
+      </header>
+
+      <section class="workspace">
+        <form id="document-upload-form" class="panel">
+          <h2>一括アップロード</h2>
+          <div class="field-grid">
+            <label>
+              保存範囲
+              <select id="document-scope">
+                <option value="persistent">永続資料</option>
+                <option value="temporary">一時文書</option>
+              </select>
+            </label>
+            <label>
+              旧ローカルチャットID
+              <input id="session-id" type="number" min="1" placeholder="一時文書だけ任意" />
+            </label>
+          </div>
+          <label>
+            Open WebUI 会話ID
+            <input id="external-session-id" type="text" placeholder="Open WebUIから呼ぶ場合の一時文書紐付けID" />
+          </label>
+          <label>
+            コレクション名
+            <input id="collection-name" type="text" required placeholder="例: handbooks" />
+          </label>
+          <label>
+            説明
+            <input id="collection-description" type="text" placeholder="例: 学生生活ハンドブック" />
+          </label>
+          <label>
+            資料ファイル
+            <input id="document-files" type="file" multiple required />
+          </label>
+          <label class="inline-check">
+            <input id="process-immediately" type="checkbox" checked />
+            取り込み後すぐに正規化・チャンク化・索引化する
+          </label>
+          <button type="submit" class="primary">資料を投入</button>
+        </form>
+
+        <section class="panel">
+          <h2>コレクション</h2>
+          <button id="refresh-collections" type="button">再読み込み</button>
+          <ul id="collection-list" class="plain-list"></ul>
+          <h2>文書一覧</h2>
+          <button id="refresh-documents" type="button">文書を再読み込み</button>
+          <ul id="document-list" class="plain-list"></ul>
+          <p id="document-error" class="error" hidden></p>
+        </section>
+      </section>
+
+      <section class="results-grid documents-results">
+        <section>
+          <h2>投入結果</h2>
+          <ul id="document-result-list" class="plain-list"></ul>
+        </section>
+        <section>
+          <h2>全文検索</h2>
+          <form id="document-search-form" class="compact-form">
+            <label>
+              検索語
+              <input id="document-search-query" type="text" required placeholder="例: handbook" />
+            </label>
+            <label>
+              コレクション
+              <input id="document-search-collection" type="text" placeholder="空なら全体検索" />
+            </label>
+            <label>
+              保存範囲
+              <select id="document-search-scope">
+                <option value="">全体</option>
+                <option value="persistent">永続資料</option>
+                <option value="temporary">一時文書</option>
+              </select>
+            </label>
+            <label>
+              旧ローカルチャットID
+              <input id="document-search-session" type="number" min="1" placeholder="空なら全体検索" />
+            </label>
+            <label>
+              Open WebUI 会話ID
+              <input id="document-search-external-session" type="text" placeholder="空なら全体検索" />
+            </label>
+            <button type="submit">検索</button>
+          </form>
+        </section>
+        <section>
+          <h2>検索結果</h2>
+          <div id="document-search-results" class="search-results"></div>
+        </section>
+        <section>
+          <h2>文書本文</h2>
+          <div id="document-detail" class="document-detail"></div>
+        </section>
+      </section>
+    </main>
+
+    <script src="/documents/app.js" type="module"></script>
+  </body>
+</html>

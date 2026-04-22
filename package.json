@@ -1,0 +1,13 @@
+{
+  "name": "engineering_design_2026",
+  "version": "1.0.0",
+  "description": "Local School AI Platform mock frontend dependencies.",
+  "private": true,
+  "scripts": {
+    "vendor:chat": "cp node_modules/marked/lib/marked.esm.js frontend/vendor/marked.esm.js && cp node_modules/marked/LICENSE.md frontend/vendor/marked.LICENSE.md && cp node_modules/dompurify/dist/purify.es.mjs frontend/vendor/purify.es.mjs && cp node_modules/dompurify/LICENSE frontend/vendor/dompurify.LICENSE"
+  },
+  "dependencies": {
+    "dompurify": "^3.4.0",
+    "marked": "^18.0.2"
+  }
+}

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Open WebUI 連携</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="top-bar">
+        <div>
+          <p class="eyebrow">Local School AI Platform</p>
+          <h1>Open WebUI 連携</h1>
+        </div>
+        <p class="local-note">
+          通常チャットは Open WebUI に任せ、このバックエンドは学校向けデータ処理APIとして使います。
+          <a href="/">議事録</a>
+          <a href="/documents/">資料投入</a>
+          <a href="/compare/">文書比較</a>
+        </p>
+      </header>
+
+      <section class="workspace">
+        <section class="panel">
+          <h2>責務分離</h2>
+          <p class="assist-note">
+            Open WebUI はチャットUI、会話セッション、モデル選択、ツール起動導線を担当します。
+            自前バックエンドは原本保存、正規化、chunk化、検索、比較、議事録ワークフロー、監査ログを保持します。
+          </p>
+          <ul class="plain-list">
+            <li>連携マニフェスト: <a href="/api/openwebui/manifest">/api/openwebui/manifest</a></li>
+            <li>ツール一覧: <a href="/api/openwebui/tools">/api/openwebui/tools</a></li>
+            <li>ヘルスチェック: <a href="/api/openwebui/health">/api/openwebui/health</a></li>
+          </ul>
+        </section>
+
+        <section class="panel">
+          <h2>Open WebUI 側から呼ぶAPI</h2>
+          <ul class="plain-list">
+            <li>資料検索: POST /api/openwebui/tools/document-search</li>
+            <li>一時文書アップロード: POST /api/openwebui/tools/session-documents/upload</li>
+            <li>文書読解: GET /api/openwebui/tools/documents/{document_id}</li>
+            <li>文書比較: POST /api/openwebui/tools/document-compare</li>
+            <li>議事録導線: POST /api/openwebui/tools/minutes-launch</li>
+          </ul>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>
