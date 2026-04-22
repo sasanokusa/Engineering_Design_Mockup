@@ -20,6 +20,12 @@ dev = [
 asr-faster-whisper = [
     "faster-whisper>=1.0.0",
 ]
+documents = [
+    "docling>=2.0.0",
+]
+
+[project.scripts]
+school-ai = "backend.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

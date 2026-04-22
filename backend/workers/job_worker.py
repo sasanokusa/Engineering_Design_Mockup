@@ -7,6 +7,7 @@ from backend.adapters.llm.factory import create_llm_adapter
 from backend.repositories.database import session_scope
 from backend.repositories.job_repository import JobRepository
 from backend.services.cleanup_service import CleanupService
+from backend.services.document_compare_service import DocumentCompareService
 from backend.services.minutes_service import MinutesService
 from backend.services.transcription_service import TranscriptionService
 
@@ -43,6 +44,16 @@ def run_job(job_id: int) -> None:
             jobs.mark_completed(job, result_type="minutes_document", result_id=minutes.id)
             return
 
+        if job.job_type == "document_compare":
+            comparison = DocumentCompareService(db).compare_documents(
+                document_ids=[int(document_id) for document_id in payload["document_ids"]],
+                min_similarity=float(payload.get("min_similarity", 0.35)),
+                limit=int(payload.get("limit", 20)),
+                granularity=str(payload.get("granularity", "chunk")),
+            )
+            jobs.mark_completed(job, result_type="document_comparison", result_id=comparison.id)
+            return
+
         raise ValueError(f"Unsupported job type: {job.job_type}")
     except Exception as exc:
         message = f"{exc}"
@@ -56,4 +67,3 @@ def run_job(job_id: int) -> None:
             return
     finally:
         db.close()
-

@@ -1,4 +1,5 @@
 .venv/
+node_modules/
 __pycache__/
 .pytest_cache/
 .env
@@ -8,3 +9,4 @@ data/
 *.egg-info/
 .vault
 local_school_ai_requirements_v2.md
+.aider*

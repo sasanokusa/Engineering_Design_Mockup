@@ -13,14 +13,14 @@ from backend.config import Settings
 _SAFE_NAME_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 
 
-def safe_filename(filename: str) -> str:
+def safe_filename(filename: str, *, default: str = "file") -> str:
     cleaned = _SAFE_NAME_RE.sub("_", Path(filename).name).strip("._")
-    return cleaned or "audio"
+    return cleaned or default
 
 
 def save_audio_upload(upload: UploadFile, settings: Settings) -> tuple[Path, str, int]:
     settings.resolved_upload_dir.mkdir(parents=True, exist_ok=True)
-    original = safe_filename(upload.filename or "audio")
+    original = safe_filename(upload.filename or "audio", default="audio")
     stored_name = f"{uuid4().hex}_{original}"
     destination = settings.resolved_upload_dir / stored_name
 
@@ -28,4 +28,3 @@ def save_audio_upload(upload: UploadFile, settings: Settings) -> tuple[Path, str
         shutil.copyfileobj(upload.file, buffer)
 
     return destination, stored_name, destination.stat().st_size
-

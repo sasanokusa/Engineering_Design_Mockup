@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from backend.adapters.llm.base import LLMResponse
+from backend.adapters.llm.base import LLMChatMessage, LLMResponse
 
 
 class MockLLMAdapter:
@@ -18,6 +18,30 @@ class MockLLMAdapter:
             text = self._minutes_text(user_prompt)
         else:
             text = self._cleanup_text(user_prompt)
+        return LLMResponse(text=text, provider=self.provider_name, model=self.model_name)
+
+    def generate_chat(self, *, messages: list[LLMChatMessage]) -> LLMResponse:
+        latest_user = next((message.content for message in reversed(messages) if message.role == "user"), "")
+        attachment_context = self._extract_attachment_context(messages)
+        tool_names = [
+            line.removeprefix("- ").split(":", 1)[0]
+            for message in messages
+            if message.role == "system"
+            for line in message.content.splitlines()
+            if line.startswith("- ")
+        ]
+        tool_note = ""
+        if tool_names:
+            tool_note = f"\n\n利用可能な専用ツール候補: {', '.join(dict.fromkeys(tool_names))}"
+        if attachment_context:
+            text = self._attachment_chat_text(latest_user=latest_user, attachment_context=attachment_context)
+            return LLMResponse(text=text, provider=self.provider_name, model=self.model_name)
+        text = (
+            f"受け取った内容: {latest_user}\n\n"
+            "このフェーズではチャット履歴保存とLLM応答生成の流れを確認できます。"
+            "資料検索・比較・議事録は専用ツールとして接続されています。"
+            f"{tool_note}"
+        )
         return LLMResponse(text=text, provider=self.provider_name, model=self.model_name)
 
     def _cleanup_text(self, user_prompt: str) -> str:
@@ -68,3 +92,48 @@ class MockLLMAdapter:
                 value = line.removeprefix(prefix).strip()
                 return value or None
         return None
+
+    def _extract_attachment_context(self, messages: list[LLMChatMessage]) -> str:
+        for message in messages:
+            if message.role != "system":
+                continue
+            marker = "このチャットに添付された文書コンテキスト:"
+            if marker not in message.content:
+                continue
+            context = message.content.split(marker, 1)[1]
+            return context.split("ユーザーが", 1)[0].strip()
+        return ""
+
+    def _attachment_chat_text(self, *, latest_user: str, attachment_context: str) -> str:
+        filename = "添付文書"
+        first_line = attachment_context.splitlines()[0] if attachment_context.splitlines() else ""
+        if "filename=" in first_line:
+            filename = first_line.split("filename=", 1)[1].split(" status=", 1)[0].strip()
+        excerpt = self._first_context_excerpt(attachment_context)
+        if any(word in latest_user for word in ("まとめ", "要約", "概要", "サマリ")):
+            return "\n".join(
+                [
+                    f"# {filename} の要約 mock",
+                    "",
+                    "- 添付文書をチャット文脈として受け取っています。",
+                    f"- 主な内容: {excerpt}",
+                    "- 追加で確認するなら、要点、課題、引用したい箇所を指定してください。",
+                ]
+            )
+        return "\n".join(
+            [
+                f"添付文書 `{filename}` を参照できます。",
+                "",
+                f"関連しそうな本文: {excerpt}",
+                "",
+                "確認したい観点をそのまま入力してください。",
+            ]
+        )
+
+    def _first_context_excerpt(self, attachment_context: str) -> str:
+        for line in attachment_context.splitlines():
+            clean = line.strip()
+            if not clean or clean.startswith("[document_id=") or clean.startswith("- chunk"):
+                continue
+            return clean[:180]
+        return "参照可能な本文が見つかりませんでした。"

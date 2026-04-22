@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, JSON, String, Text, func
+from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -106,3 +106,110 @@ class Job(Base, TimestampMixin):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+
+class ChatSession(Base, TimestampMixin):
+    __tablename__ = "chat_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    title: Mapped[str] = mapped_column(String(255), default="新規チャット")
+    system_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    messages: Mapped[list["ChatMessage"]] = relationship(
+        back_populates="session",
+        cascade="all, delete-orphan",
+        order_by="ChatMessage.id",
+    )
+
+
+class ChatMessage(Base, TimestampMixin):
+    __tablename__ = "chat_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("chat_sessions.id"), index=True)
+    role: Mapped[str] = mapped_column(String(30), index=True)
+    content: Mapped[str] = mapped_column(Text)
+    tool_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    tool_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    llm_provider: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    llm_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    session: Mapped[ChatSession] = relationship(back_populates="messages")
+
+
+class DocumentCollection(Base, TimestampMixin):
+    __tablename__ = "document_collections"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    documents: Mapped[list["DocumentRecord"]] = relationship(
+        back_populates="collection",
+        cascade="all, delete-orphan",
+        order_by="DocumentRecord.id",
+    )
+
+
+class DocumentRecord(Base, TimestampMixin):
+    __tablename__ = "documents"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    collection_id: Mapped[int] = mapped_column(ForeignKey("document_collections.id"), index=True)
+    session_id: Mapped[int | None] = mapped_column(
+        ForeignKey("chat_sessions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    external_session_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    scope: Mapped[str] = mapped_column(String(30), default="persistent", index=True)
+    original_filename: Mapped[str] = mapped_column(String(255))
+    stored_filename: Mapped[str] = mapped_column(String(255), default="")
+    file_path: Mapped[str] = mapped_column(Text, default="")
+    content_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    sha256: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(30), default="uploaded", index=True)
+    normalization_backend: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    normalized_json_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    normalized_markdown_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    chunks_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    collection: Mapped[DocumentCollection] = relationship(back_populates="documents")
+    chunks: Mapped[list["DocumentChunk"]] = relationship(
+        back_populates="document",
+        cascade="all, delete-orphan",
+        order_by="DocumentChunk.chunk_index",
+    )
+
+
+class DocumentChunk(Base, TimestampMixin):
+    __tablename__ = "document_chunks"
+    __table_args__ = (
+        UniqueConstraint("document_id", "chunk_index", name="uq_document_chunks_document_index"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), index=True)
+    collection_id: Mapped[int] = mapped_column(ForeignKey("document_collections.id"), index=True)
+    chunk_index: Mapped[int] = mapped_column(Integer)
+    text: Mapped[str] = mapped_column(Text)
+    heading: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_locator: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    document: Mapped[DocumentRecord] = relationship(back_populates="chunks")
+    collection: Mapped[DocumentCollection] = relationship()
+
+
+class DocumentComparison(Base, TimestampMixin):
+    __tablename__ = "document_comparisons"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    document_ids: Mapped[list[int]] = mapped_column(JSON)
+    min_similarity: Mapped[float] = mapped_column(Float, default=0.35)
+    granularity: Mapped[str] = mapped_column(String(30), default="chunk")
+    result_json: Mapped[dict] = mapped_column(JSON)

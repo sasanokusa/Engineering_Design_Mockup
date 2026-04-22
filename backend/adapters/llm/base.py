@@ -11,6 +11,12 @@ class LLMResponse:
     model: str
 
 
+@dataclass(frozen=True)
+class LLMChatMessage:
+    role: str
+    content: str
+
+
 class LLMAdapter(Protocol):
     provider_name: str
     model_name: str
@@ -18,3 +24,5 @@ class LLMAdapter(Protocol):
     def generate(self, *, system_prompt: str, user_prompt: str) -> LLMResponse:
         """Generate text through a local or local-network LLM runtime."""
 
+    def generate_chat(self, *, messages: list[LLMChatMessage]) -> LLMResponse:
+        """Generate a response from a chat history."""

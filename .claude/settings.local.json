@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs ls *)",
+      "Bash(find /Users/ryoike/Documents/engineering_design_2026/backend/api -name \"*.py\" -exec grep -l \"results\\\\|transcripts\\\\|cleaned\" {} \\\\;)"
+    ]
+  }
+}
